@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("TestCSharpDll")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("Shuffle Link")]
+[assembly: AssemblyDescription("MusicBee plugin to keep multi-part songs playing together in shuffle mode")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("TestCSharpDll")]
-[assembly: AssemblyCopyright("Copyright ©  2010")]
+[assembly: AssemblyCompany("FoxSoft")]
+[assembly: AssemblyProduct("Shuffle Link")]
+[assembly: AssemblyCopyright("Copyright ©  2014")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
