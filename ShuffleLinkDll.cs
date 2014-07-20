@@ -8,8 +8,18 @@ namespace MusicBeePlugin
 {
     public partial class Plugin
     {
+        // Standard MusicBee API code
         private MusicBeeApiInterface mbApiInterface;
         private PluginInfo about = new PluginInfo();
+
+        // Shuffle Link specific variables
+        private System.Timers.Timer timerUserModifiedPlaylist = new System.Timers.Timer (500);
+        private bool hasUserModifiedPlaylist = false;
+        // HACK:  MusicBee does not appear to have a way to distinguish between TrackChanged due to end of song,
+        //  and changing due to a manual selection.  This distinguishes a change in the NPL from preventing track-changed
+        //  events from re-linking the songs together.
+        // If 1 <-> 2 <-> 3
+        //  Starting song 2 directly would not cause a forced switch back to song 1.
 
         public PluginInfo Initialise(IntPtr apiInterfacePtr)
         {
@@ -22,8 +32,8 @@ namespace MusicBeePlugin
             about.TargetApplication = "";   // current only applies to artwork, lyrics or instant messenger name that appears in the provider drop down selector or target Instant Messenger
             about.Type = PluginType.General;
             about.VersionMajor = 0;  // your plugin version
-            about.VersionMinor = 0;
-            about.Revision = 1;
+            about.VersionMinor = 1;
+            about.Revision = 0;
             about.MinInterfaceVersion = MinInterfaceVersion;
             about.MinApiRevision = MinApiRevision;
             about.ReceiveNotifications = (ReceiveNotificationFlags.PlayerEvents | ReceiveNotificationFlags.TagEvents);
@@ -79,43 +89,45 @@ namespace MusicBeePlugin
             {
                 case NotificationType.PluginStartup:
                     // perform startup initialisation
-                    switch (mbApiInterface.Player_GetPlayState())
-                    {
-                        case PlayState.Playing:
-                        case PlayState.Paused:
-                            // ...
-                            break;
-                    }
+                    timerUserModifiedPlaylist.Elapsed += new System.Timers.ElapsedEventHandler(timerUserModifiedPlaylist_Elapsed);
+                    break;
+                case NotificationType.NowPlayingListChanged:
+                    hasUserModifiedPlaylist = true;
+                    timerUserModifiedPlaylist.Start();
+                    // Assume the user modified the N.P.L.; prevent automatic song linking from overriding a chosen song
                     break;
                 case NotificationType.TrackChanged:
-                    string artist = mbApiInterface.NowPlaying_GetFileTag(MetaDataType.Artist);
+                    if (mbApiInterface.Player_GetShuffle () != true)
+                        break;
+                    // No need to do anything if shuffle is not enabled
+
+                    if (hasUserModifiedPlaylist == true)
+                        break;
+                    // Don't override automatic song linking
+
+
+                    string song_comments = mbApiInterface.NowPlaying_GetFileTag(MetaDataType.Comment);
+
+                    // TODO: Remove this part, just testing out the MusicBee API
+                    //  Does NowPlayingList_QueueNext use the Play Queue?
+                    //  Testing confirms:  Yes, it does.
+                    mbApiInterface.Library_QueryFiles("artist=Lifeformed");
+                    // TODO: How to handle searching for more than one thing at a time?
+                    string file_url = mbApiInterface.Library_QueryGetNextFile();
+                    mbApiInterface.NowPlayingList_QueueNext(file_url);
+
                     // ...
                     break;
             }
         }
 
-        // return an array of lyric or artwork provider names this plugin supports
-        // the providers will be iterated through one by one and passed to the RetrieveLyrics/ RetrieveArtwork function in order set by the user in the MusicBee Tags(2) preferences screen until a match is found
-        public string[] GetProviders()
+        private void  timerUserModifiedPlaylist_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            return null;
+            // Reasonable amount of time has passed; any TrackChanged events that happen now should result from
+            //  MusicBee actually reaching the end of a song
+            timerUserModifiedPlaylist.Stop();
+            hasUserModifiedPlaylist = false;
         }
 
-        // return lyrics for the requested artist/title from the requested provider
-        // only required if PluginType = LyricsRetrieval
-        // return null if no lyrics are found
-        public string RetrieveLyrics(string sourceFileUrl, string artist, string trackTitle, string album, bool synchronisedPreferred, string provider)
-        {
-            return null;
-        }
-
-        // return Base64 string representation of the artwork binary data from the requested provider
-        // only required if PluginType = ArtworkRetrieval
-        // return null if no artwork is found
-        public string RetrieveArtwork(string sourceFileUrl, string albumArtist, string album, string provider)
-        {
-            //Return Convert.ToBase64String(artworkBinaryData)
-            return null;
-        }
    }
 }
