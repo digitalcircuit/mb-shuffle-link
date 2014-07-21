@@ -109,13 +109,6 @@ namespace MusicBeePlugin
                     // Assume the user modified the N.P.L.; prevent automatic song linking from overriding a chosen song
                     break;
                 case NotificationType.TrackChanged:
-                    // For testing:
-                    if (System.IO.File.Exists("C:\\Users\\Shane\\Desktop\\testing-identifiers.txt") == true)
-                    {
-                        BasicSongIdentifier testSong = parseToSong(System.IO.File.ReadAllText ("C:\\Users\\Shane\\Desktop\\testing-identifiers.txt"));
-                        System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-identifiers-results.txt", getSongURI(testSong.Artist, testSong.Album, testSong.Title, true, true));
-                    }
-
                     if (mbApiInterface.Player_GetShuffle () != true)
                         break;
                     // No need to do anything if shuffle is not enabled
@@ -124,17 +117,23 @@ namespace MusicBeePlugin
                         break;
                     // Don't override automatic song linking
 
+                    List<string> continuousPlaylist = buildContinuousPlaylist(sourceFileUrl);
 
-                    string song_comments = mbApiInterface.NowPlaying_GetFileTag(MetaDataType.Comment);
+                    // For testing:
+                    System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-playlist.txt", "");
+                    foreach (string track in continuousPlaylist)
+                    {
+                        System.IO.File.AppendAllText("C:\\Users\\Shane\\Desktop\\testing-playlist.txt", track + " \r\n");
+                    }
+
+
 
                     // TODO: Remove this part, just testing out the MusicBee API
                     //  Does NowPlayingList_QueueNext use the Play Queue?
                     //  Testing confirms:  Yes, it does.
-                    //mbApiInterface.Library_QueryFiles(generateSearchQuery ("Lifeformed", "Fastfall", "Cider Time", true, true));
-                    string fileUrl = getSongURI("Lifeformed", "Fastfall", "Cider Time", true, true);
-                    //mbApiInterface.Library_QueryGetNextFile();
-                    if (fileUrl != null)
-                        mbApiInterface.NowPlayingList_QueueNext(fileUrl);
+                    //string fileUrl = getSongURI("Lifeformed", "Fastfall", "Cider Time", true, true);
+                    //if (fileUrl != null)
+                    //    mbApiInterface.NowPlayingList_QueueNext(fileUrl);
 
                     // ...
                     break;
@@ -149,9 +148,105 @@ namespace MusicBeePlugin
             hasUserModifiedPlaylist = false;
         }
 
-        private string getNextSongURLFromComment(string TrackURL)
+        /// <summary>
+        /// Given a URL to a song, builds a playlist of linked songs via the comment field
+        /// </summary>
+        /// <param name="CurrentSongURL">The current song, or starting point of the search</param>
+        /// <returns>A list of song URLs, minimum 1 (current song), or more if links found</returns>
+        private List<string> buildContinuousPlaylist(string CurrentSongURL)
         {
-            throw new NotImplementedException ();
+            List<string> temporaryPlaylist = new List<string>();
+
+            temporaryPlaylist.Add(CurrentSongURL);
+            // Add the assigned song, so it's first in the list (for now)
+            string initialSongComment = mbApiInterface.Library_GetFileTag(CurrentSongURL, MetaDataType.Comment);
+
+            string curResult = "";
+            string curSongComment = initialSongComment;
+
+            // Check each song, recursively, until end is found
+            do
+            {
+                curResult = getSongURLFromCommentHeader("Next", curSongComment);
+                if(temporaryPlaylist.Contains (curResult))
+                    break;
+                // Don't allow duplicates
+
+                // Add to the end of the list
+                temporaryPlaylist.Add(curResult);
+
+                if (curResult != null)
+                    curSongComment = mbApiInterface.Library_GetFileTag(curResult, MetaDataType.Comment);
+                // If the result isn't null (song found), try to find the next one
+            } while (curResult != null);
+
+            curSongComment = initialSongComment;
+            // Check each song, recursively (from the first provided one), until end is found
+            do
+            {
+                curResult = getSongURLFromCommentHeader("Prev", curSongComment);
+                if (temporaryPlaylist.Contains(curResult))
+                    break;
+                // Don't allow duplicates
+
+                // Add to the beginning of the list
+                temporaryPlaylist.Insert (0, curResult);
+
+                if (curResult != null)
+                    curSongComment = mbApiInterface.Library_GetFileTag(curResult, MetaDataType.Comment);
+                // If the result isn't null (song found), try to find the next one
+            } while (curResult != null);
+
+            // All's done, return the results
+            //  If no matches, it will be a playlist of length 1
+            return temporaryPlaylist;
+        }
+
+        /// <summary>
+        /// Checks the passed song comment for a reference to another track
+        /// </summary>
+        /// <param name="CommentHeader">The start of the identifier, e.g. Next: or Prev:</param>
+        /// <param name="SongComment">The comment of the song</param>
+        /// <returns>URL to a song, or null if not found or error encountered</returns>
+        private string getSongURLFromCommentHeader(string CommentHeader, string SongComment)
+        {
+            if (SongComment == null || SongComment.Contains(CommentHeader + ":") == false)
+                return null;
+            // If null or lacking a "Header:" line, nothing there
+            List<string> fields = new List<string>();
+
+            // If there's multiple lines, add 'em all, otherwise just add the lone line
+            if (SongComment.Contains("\n") == true)
+            {
+                fields.AddRange(SongComment.Split('\n'));
+            }
+            else
+            {
+                fields.Add(SongComment);
+            }
+
+            foreach (string field in fields)
+            {
+                if (field.StartsWith(CommentHeader + ":") == true)
+                {
+                    try
+                    {
+                        // Starts with proper header:
+                        //  Try to grab the song info from the part after header, e.g.
+                        //  Next: title=Title;artist=Artist;album=Album
+                        BasicSongIdentifier songInformation = parseToSong (field.Substring (field.IndexOf (":") + 1).Trim ());
+                        return getSongURI (songInformation.Artist, songInformation.Album, songInformation.Title, true, true);
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Realistically, there's no need to bring the whole music player down if this fails
+                        //  Try with the other fields
+                        continue;
+                    }
+                }
+            }
+            //  Assume as if no song linked
+            return null;
         }
 
         /// <summary>
