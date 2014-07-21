@@ -33,6 +33,10 @@ namespace MusicBeePlugin
         private const char Song_ParamSep = ';';
         private const char Song_ParamAssign = '=';
 
+        // Keep track of what playlist was last auto-created.  Only if this changes does a new playlist need
+        //  inserted into the NowPlayingList.
+        private List<string> LastContinuousPlaylist = new List<string>();
+
         public PluginInfo Initialise(IntPtr apiInterfacePtr)
         {
             mbApiInterface = new MusicBeeApiInterface();
@@ -119,21 +123,39 @@ namespace MusicBeePlugin
 
                     List<string> continuousPlaylist = buildContinuousPlaylist(sourceFileUrl);
 
+                    // If there's only one song or less, something either broke, or no playlist needs strung together.
+                    //  Otherwise, load 'em up!
+                    if (continuousPlaylist.Count > 1)
+                    {
+                        if (checkIfPlaylistsEqual(LastContinuousPlaylist, continuousPlaylist))
+                        {
+                            // This playlist was already set up in the Now Playing List.  Don't do anything.
+                        }
+                        else
+                        {
+                            // First time encountering a song from this list.  Start from scratch.
+                            //  Also keep a record of this playlist
+                            LastContinuousPlaylist.Clear();
+                            foreach (string track in continuousPlaylist)
+                            {
+                                mbApiInterface.NowPlayingList_QueueNext(track);
+                                LastContinuousPlaylist.Add(track);
+                            }
+
+                            if (sourceFileUrl.Trim() != continuousPlaylist[0].Trim())
+                            {
+                                // Not playing the first song of the playlist, switch to it
+                                mbApiInterface.Player_PlayNextTrack();
+                            }
+                        }
+                    }
+
                     // For testing:
                     System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-playlist.txt", "");
                     foreach (string track in continuousPlaylist)
                     {
                         System.IO.File.AppendAllText("C:\\Users\\Shane\\Desktop\\testing-playlist.txt", track + " \r\n");
                     }
-
-
-
-                    // TODO: Remove this part, just testing out the MusicBee API
-                    //  Does NowPlayingList_QueueNext use the Play Queue?
-                    //  Testing confirms:  Yes, it does.
-                    //string fileUrl = getSongURI("Lifeformed", "Fastfall", "Cider Time", true, true);
-                    //if (fileUrl != null)
-                    //    mbApiInterface.NowPlayingList_QueueNext(fileUrl);
 
                     // ...
                     break;
@@ -146,6 +168,25 @@ namespace MusicBeePlugin
             //  MusicBee actually reaching the end of a song
             timerUserModifiedPlaylist.Stop();
             hasUserModifiedPlaylist = false;
+        }
+
+        /// <summary>
+        /// Checks if the two list of strings are equal in length and items
+        /// </summary>
+        /// <param name="Playlist1">First list of strings</param>
+        /// <param name="Playlist2">Second list of strings</param>
+        /// <returns>True if equal, false if not</returns>
+        private bool checkIfPlaylistsEqual(List<string> Playlist1, List<string> Playlist2)
+        {
+            if (Playlist1.Count != Playlist2.Count)
+                return false;
+
+            for (int i = 0; i < Playlist1.Count; i++)
+            {
+                if (Playlist1[i] != Playlist2[i])
+                    return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -172,12 +213,14 @@ namespace MusicBeePlugin
                     break;
                 // Don't allow duplicates
 
-                // Add to the end of the list
-                temporaryPlaylist.Add(curResult);
-
-                if (curResult != null)
+                if (curResult != null && curResult.Trim () != "")
+                {
                     curSongComment = mbApiInterface.Library_GetFileTag(curResult, MetaDataType.Comment);
-                // If the result isn't null (song found), try to find the next one
+                    // If the result isn't null (song found), try to find the next one
+
+                    // Add to the end of the list
+                    temporaryPlaylist.Add(curResult);
+                }
             } while (curResult != null);
 
             curSongComment = initialSongComment;
@@ -189,12 +232,14 @@ namespace MusicBeePlugin
                     break;
                 // Don't allow duplicates
 
-                // Add to the beginning of the list
-                temporaryPlaylist.Insert (0, curResult);
-
-                if (curResult != null)
+                if (curResult != null && curResult.Trim () != "")
+                {
                     curSongComment = mbApiInterface.Library_GetFileTag(curResult, MetaDataType.Comment);
-                // If the result isn't null (song found), try to find the next one
+                    // If the result isn't null (song found), try to find the next one
+
+                    // Add to the beginning of the list
+                    temporaryPlaylist.Insert(0, curResult);
+                }
             } while (curResult != null);
 
             // All's done, return the results
