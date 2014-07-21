@@ -111,8 +111,7 @@ namespace MusicBeePlugin
                     // TODO: Remove this part, just testing out the MusicBee API
                     //  Does NowPlayingList_QueueNext use the Play Queue?
                     //  Testing confirms:  Yes, it does.
-                    mbApiInterface.Library_QueryFiles("artist=Lifeformed");
-                    // TODO: How to handle searching for more than one thing at a time?
+                    mbApiInterface.Library_QueryFiles(generateSearchQuery ("Lifeformed", "Fastfall", "Cider Time", true, true));
                     string file_url = mbApiInterface.Library_QueryGetNextFile();
                     mbApiInterface.NowPlayingList_QueueNext(file_url);
 
@@ -127,6 +126,58 @@ namespace MusicBeePlugin
             //  MusicBee actually reaching the end of a song
             timerUserModifiedPlaylist.Stop();
             hasUserModifiedPlaylist = false;
+        }
+
+
+        /// <summary>
+        /// Gets a URL to a song in the music library
+        /// </summary>
+        /// <param name="Artist">Artist of song</param>
+        /// <param name="Album">Album of song</param>
+        /// <param name="Title">Title of song</param>
+        /// <param name="mustMatchAll">If all conditions must be met, or just one</param>
+        /// <param name="isExactMatch">If tags must strictly match, or just contain the text</param>
+        /// <returns>URL to first song found, or null if no match</returns>
+        private string getSongURI(string Artist, string Album, string Title, bool mustMatchAll, bool isExactMatch)
+        {
+            string[] tracks = {};
+            mbApiInterface.Library_QueryFilesEx(generateSearchQuery(Artist, Album, Title, mustMatchAll, isExactMatch), ref tracks);
+            if (tracks.Length > 0)
+            {
+                return tracks[0];
+                // At some point in the future, there might be a need for dealing with multiple tracks.
+                //  For now, just assume the first one.
+            }
+            else
+            {
+                return null;
+                // No song found
+            }
+        }
+
+        /// <summary>
+        /// Generates an XML-based SmartPlaylist with given inputs
+        /// </summary>
+        /// <param name="Artist">Artist of song</param>
+        /// <param name="Album">Album of song</param>
+        /// <param name="Title">Title of song</param>
+        /// <param name="mustMatchAll">If all conditions must be met, or just one</param>
+        /// <param name="isExactMatch">If tags must strictly match, or just contain the text</param>
+        /// <returns>XML-based SmartPlaylist for MusicBee queries</returns>
+        private string generateSearchQuery(string Artist, string Album, string Title, bool mustMatchAll, bool isExactMatch)
+        {
+            string matchMode = (mustMatchAll ? "All" : "Any");
+            string searchMode = (isExactMatch ? "Is" : "Contains");
+            return string.Format("<SmartPlaylist>\n" +
+                                    "<Source Type=\"1\">\n" +
+                                        "<Conditions CombineMethod=\"{0}\"> \n" +
+                                            "<Condition Field=\"Artist\" Comparison=\"{1}\" Value=\"{2}\" />\n" +
+                                            "<Condition Field=\"Album\" Comparison=\"{1}\" Value=\"{3}\" />\n" +
+                                            "<Condition Field=\"Title\" Comparison=\"{1}\" Value=\"{4}\" />\n" +
+                                        "</Conditions>\n" +
+                                    "</Source>\n" +
+                                 "</SmartPlaylist>", matchMode, searchMode, Artist, Album, Title);
+            //                                       {0}        {1}         {2}     {3}    {4}
         }
 
    }
