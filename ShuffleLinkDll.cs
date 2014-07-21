@@ -16,10 +16,22 @@ namespace MusicBeePlugin
         private System.Timers.Timer timerUserModifiedPlaylist = new System.Timers.Timer (500);
         private bool hasUserModifiedPlaylist = false;
         // HACK:  MusicBee does not appear to have a way to distinguish between TrackChanged due to end of song,
-        //  and changing due to a manual selection.  This distinguishes a change in the NPL from preventing track-changed
+        //  and changing due to a manual selection.  This distinguishes a change in the Now Playing List to prevent track-changed
         //  events from re-linking the songs together.
         // If 1 <-> 2 <-> 3
         //  Starting song 2 directly would not cause a forced switch back to song 1.
+
+        // Song information as defined by a string (e.g. comment field)
+        // E.g. title=This;artist=Somethings;album=totally\; yeah
+        private struct BasicSongIdentifier
+        {
+            public string Title;
+            public string Artist;
+            public string Album;
+        }
+
+        private const char Song_ParamSep = ';';
+        private const char Song_ParamAssign = '=';
 
         public PluginInfo Initialise(IntPtr apiInterfacePtr)
         {
@@ -97,6 +109,13 @@ namespace MusicBeePlugin
                     // Assume the user modified the N.P.L.; prevent automatic song linking from overriding a chosen song
                     break;
                 case NotificationType.TrackChanged:
+                    // For testing:
+                    if (System.IO.File.Exists("C:\\Users\\Shane\\Desktop\\testing-identifiers.txt") == true)
+                    {
+                        BasicSongIdentifier testSong = parseToSong(System.IO.File.ReadAllText ("C:\\Users\\Shane\\Desktop\\testing-identifiers.txt"));
+                        System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-identifiers-results.txt", getSongURI(testSong.Artist, testSong.Album, testSong.Title, true, true));
+                    }
+
                     if (mbApiInterface.Player_GetShuffle () != true)
                         break;
                     // No need to do anything if shuffle is not enabled
@@ -111,9 +130,11 @@ namespace MusicBeePlugin
                     // TODO: Remove this part, just testing out the MusicBee API
                     //  Does NowPlayingList_QueueNext use the Play Queue?
                     //  Testing confirms:  Yes, it does.
-                    mbApiInterface.Library_QueryFiles(generateSearchQuery ("Lifeformed", "Fastfall", "Cider Time", true, true));
-                    string file_url = mbApiInterface.Library_QueryGetNextFile();
-                    mbApiInterface.NowPlayingList_QueueNext(file_url);
+                    //mbApiInterface.Library_QueryFiles(generateSearchQuery ("Lifeformed", "Fastfall", "Cider Time", true, true));
+                    string fileUrl = getSongURI("Lifeformed", "Fastfall", "Cider Time", true, true);
+                    //mbApiInterface.Library_QueryGetNextFile();
+                    if (fileUrl != null)
+                        mbApiInterface.NowPlayingList_QueueNext(fileUrl);
 
                     // ...
                     break;
@@ -128,6 +149,57 @@ namespace MusicBeePlugin
             hasUserModifiedPlaylist = false;
         }
 
+        private string getNextSongURLFromComment(string TrackURL)
+        {
+            throw new NotImplementedException ();
+        }
+
+        /// <summary>
+        /// Takes in a song identifier as a string, returns a structure with the fields filled out
+        /// </summary>
+        /// <param name="SongIdentifier">String of fields representing the song, e.g. title=This;artist=Somethings;album=totally\; yeah</param>
+        /// <returns>BasicSongIdentifier structure, which contains title, artist, and album</returns>
+        private BasicSongIdentifier parseToSong(string SongIdentifier)
+        {
+            if (SongIdentifier.Contains(Song_ParamAssign.ToString()) == false)
+                throw new System.ArgumentException(String.Format ("Invalid song identifier, no '{1}' character in it.  Example: 'title{1}A{0}artist{1}B{0}album{1}C'", Song_ParamSep, Song_ParamAssign), "SongIdentifier");
+            // Must have at least one specified identifier to be valid
+
+            BasicSongIdentifier referencedSong = new BasicSongIdentifier ();
+
+            // \; is an escaped semicolon, let it pass through without being split
+            string[] fields = SongIdentifier.Trim().Replace("\\" + Song_ParamSep, "IDENTIFIER_FOR_ESCAPED_CHAR").Split(Song_ParamSep);
+            string[] fieldEntries;
+            foreach (string field in fields)
+            {
+                if (field.Contains(Song_ParamAssign.ToString()) == false)
+                    continue;
+                // Ignore empty fields
+
+                // Swap the ';' back in
+                string modifiedField = field.Replace("IDENTIFIER_FOR_ESCAPED_CHAR", Song_ParamSep.ToString ());
+                fieldEntries = modifiedField.Split(Song_ParamAssign);
+                // Check the part in front, title=, artist=, etc
+                // Once found, grab everything after the first '=' sign, and add a character to account for the '='
+                //  Allows for more = signs later in the field
+                switch (fieldEntries[0])
+                {
+                    case "title":
+                        referencedSong.Title = modifiedField.Substring(modifiedField.IndexOf(Song_ParamAssign) + 1);
+                        break;
+                    case "artist":
+                        referencedSong.Artist = modifiedField.Substring(modifiedField.IndexOf(Song_ParamAssign) + 1);
+                        break;
+                    case "album":
+                        referencedSong.Album = modifiedField.Substring(modifiedField.IndexOf(Song_ParamAssign) + 1);
+                        break;
+                    default:
+                        // Might be a new type of tag.  Ignore it for now.
+                        break;
+                }
+            }
+            return referencedSong;
+        }
 
         /// <summary>
         /// Gets a URL to a song in the music library
