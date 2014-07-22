@@ -21,7 +21,8 @@ namespace MusicBeePlugin
         private PluginInfo about = new PluginInfo();
 
         // Shuffle Link specific variables
-        private System.Timers.Timer timerUserModifiedPlaylist = new System.Timers.Timer (500);
+        private System.Timers.Timer timerUserModifiedPlaylist = new System.Timers.Timer (250);
+        //  Originally 500 ms, but that could break when skipping through tracks
         private bool hasUserModifiedPlaylist = false;
         // HACK:  MusicBee does not appear to have a way to distinguish between TrackChanged due to end of song,
         //  and changing due to a manual selection.  This distinguishes a change in the Now Playing List to prevent track-changed
