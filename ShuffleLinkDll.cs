@@ -140,6 +140,9 @@ namespace MusicBeePlugin
                             System.IO.File.AppendAllText("C:\\Users\\Shane\\Desktop\\testing-playlist-cleanup.txt", playlist_index + " \r\n");
                         }
                         LastPlaylist_IndexesToRemove.Clear();
+
+                        // Clean up the last playlist, too, in case it's needed again
+                        LastContinuousPlaylist.Clear();
                     }
 
                     // If there's only one song or less, something either broke, or no playlist needs strung together.
