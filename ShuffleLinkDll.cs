@@ -38,7 +38,7 @@ namespace MusicBeePlugin
         private List<string> LastContinuousPlaylist = new List<string>();
 
         // Whenever the last continuous playlist is finished, remove the added tracks.
-        private List<int> LastPlaylist_IndexesToRemove = new List<int>();
+        private int LastPlaylist_StartingIndex = -1;
 
         public PluginInfo Initialise(IntPtr apiInterfacePtr)
         {
@@ -127,19 +127,15 @@ namespace MusicBeePlugin
                     List<string> continuousPlaylist = buildContinuousPlaylist(sourceFileUrl);
 
                     // If cleanup needed, do it, otherwise, check next things
-                    if (checkIfPlaylistsEqual(LastContinuousPlaylist, continuousPlaylist) == false && LastPlaylist_IndexesToRemove.Count > 0)
+                    if (checkIfPlaylistsEqual(LastContinuousPlaylist, continuousPlaylist) == false && LastPlaylist_StartingIndex != -1)
                     {
-                        // For testing cleanup:
-                        System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-playlist-cleanup.txt", "");
-                        
                         // Remove all automatically-added songs, to keep the playlist nice and tidy.
-                        foreach (int playlist_index in LastPlaylist_IndexesToRemove)
+
+                        for (int i = 0; i < LastContinuousPlaylist.Count; i++)
                         {
-                            mbApiInterface.NowPlayingList_RemoveAt(playlist_index);
-                            // For testing cleanup:
-                            System.IO.File.AppendAllText("C:\\Users\\Shane\\Desktop\\testing-playlist-cleanup.txt", playlist_index + " \r\n");
+                            mbApiInterface.NowPlayingList_RemoveAt(LastPlaylist_StartingIndex + 1);
                         }
-                        LastPlaylist_IndexesToRemove.Clear();
+                        LastPlaylist_StartingIndex = -1;
 
                         // Clean up the last playlist, too, in case it's needed again
                         LastContinuousPlaylist.Clear();
@@ -154,7 +150,7 @@ namespace MusicBeePlugin
                             // This playlist was already set up in the Now Playing List.  Don't do anything.
                         }
                         else
-                        {
+                        {   
                             // First time encountering a song from this list.  Start from scratch.
                             //  Also keep a record of this playlist
                             LastContinuousPlaylist.Clear();
@@ -164,13 +160,11 @@ namespace MusicBeePlugin
                                 LastContinuousPlaylist.Add(track);
                             }
 
+                            // For testing cleanup:
+                            System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-playlist-cleanup.txt", "");
+
                             // Keep note of which indexes were used when adding songs, to remove them later
-                            LastPlaylist_IndexesToRemove.Clear();
-                            int currentSongIndex = mbApiInterface.NowPlayingList_GetCurrentIndex();
-                            for (int new_index = currentSongIndex - 1; new_index < (continuousPlaylist.Count + currentSongIndex - 1); new_index++)
-                            {
-                                LastPlaylist_IndexesToRemove.Add(new_index);
-                            }
+                            LastPlaylist_StartingIndex = mbApiInterface.NowPlayingList_GetCurrentIndex();
 
                             // Switch to the song
                             //  It's simpler to always do this, rather than add logic for if it's on the first song
