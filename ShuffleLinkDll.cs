@@ -20,6 +20,9 @@ namespace MusicBeePlugin
         //  events from re-linking the songs together.
         // If 1 <-> 2 <-> 3
         //  Starting song 2 directly would not cause a forced switch back to song 1.
+        private bool isProgramModifyingPlaylist = false;
+        // HACK: Continuing above, prevent the time-out from being called if the program itself changes the Now Playing List.
+        //  This prevents bugs in the playlist clean-up code.
 
         // Song information as defined by a string (e.g. comment field)
         // E.g. title=This;artist=Somethings;album=totally\; yeah
@@ -113,6 +116,12 @@ namespace MusicBeePlugin
                     timerUserModifiedPlaylist.Elapsed += new System.Timers.ElapsedEventHandler(timerUserModifiedPlaylist_Elapsed);
                     break;
                 case NotificationType.NowPlayingListChanged:
+                    if (isProgramModifyingPlaylist == true)
+                    {
+                        isProgramModifyingPlaylist = false;
+                        break;
+                    }
+                    // Ignore this time-out if self-modified
                     hasUserModifiedPlaylist = true;
                     timerUserModifiedPlaylist.Start();
                     // Assume the user modified the N.P.L.; prevent automatic song linking from overriding a chosen song
@@ -139,11 +148,13 @@ namespace MusicBeePlugin
                     //                      Index did not increment as expected (shuffled back into existing generated playlist)
                     if ((LastPlaylist_StartingIndex != -1) && (checkIfPlaylistsEqual(LastContinuousPlaylist, continuousPlaylist) == false || LastPlaylist_CurrentIndex != mbApiInterface.NowPlayingList_GetCurrentIndex()))
                     {
+                        isProgramModifyingPlaylist = true;
                         // Remove all automatically-added songs, to keep the playlist nice and tidy.
                         for (int i = 0; i < LastContinuousPlaylist.Count; i++)
                         {
                             mbApiInterface.NowPlayingList_RemoveAt(LastPlaylist_StartingIndex + 1);
                         }
+
                         // Reset everything for next round
                         cleanupLinkedPlaylist();
                     }
@@ -161,6 +172,8 @@ namespace MusicBeePlugin
                             // First time encountering a song from this list.  Start from scratch.
                             //  Also keep a record of this playlist
                             LastContinuousPlaylist.Clear();
+                            // Tell the time-out timer to not fire
+                            isProgramModifyingPlaylist = true;
                             foreach (string track in continuousPlaylist)
                             {
                                 mbApiInterface.NowPlayingList_QueueNext(track);
