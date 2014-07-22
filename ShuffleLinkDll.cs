@@ -37,6 +37,9 @@ namespace MusicBeePlugin
         //  inserted into the NowPlayingList.
         private List<string> LastContinuousPlaylist = new List<string>();
 
+        // Whenever the last continuous playlist is finished, remove the added tracks.
+        private List<int> LastPlaylist_IndexesToRemove = new List<int>();
+
         public PluginInfo Initialise(IntPtr apiInterfacePtr)
         {
             mbApiInterface = new MusicBeeApiInterface();
@@ -123,6 +126,22 @@ namespace MusicBeePlugin
 
                     List<string> continuousPlaylist = buildContinuousPlaylist(sourceFileUrl);
 
+                    // If cleanup needed, do it, otherwise, check next things
+                    if (checkIfPlaylistsEqual(LastContinuousPlaylist, continuousPlaylist) == false && LastPlaylist_IndexesToRemove.Count > 0)
+                    {
+                        // For testing cleanup:
+                        System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-playlist-cleanup.txt", "");
+                        
+                        // Remove all automatically-added songs, to keep the playlist nice and tidy.
+                        foreach (int playlist_index in LastPlaylist_IndexesToRemove)
+                        {
+                            mbApiInterface.NowPlayingList_RemoveAt(playlist_index);
+                            // For testing cleanup:
+                            System.IO.File.AppendAllText("C:\\Users\\Shane\\Desktop\\testing-playlist-cleanup.txt", playlist_index + " \r\n");
+                        }
+                        LastPlaylist_IndexesToRemove.Clear();
+                    }
+
                     // If there's only one song or less, something either broke, or no playlist needs strung together.
                     //  Otherwise, load 'em up!
                     if (continuousPlaylist.Count > 1)
@@ -146,6 +165,14 @@ namespace MusicBeePlugin
                             {
                                 // Not playing the first song of the playlist, switch to it
                                 mbApiInterface.Player_PlayNextTrack();
+                            }
+
+                            // Keep note of which indexes were used when adding songs, to remove them later
+                            LastPlaylist_IndexesToRemove.Clear();
+                            int currentSongIndex = mbApiInterface.NowPlayingList_GetCurrentIndex();
+                            for (int new_index = currentSongIndex; new_index < (continuousPlaylist.Count + currentSongIndex); new_index++)
+                            {
+                                LastPlaylist_IndexesToRemove.Add(new_index);
                             }
                         }
                     }
