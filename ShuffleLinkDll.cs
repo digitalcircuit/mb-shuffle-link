@@ -4,6 +4,13 @@ using System.Drawing;
 using System.Windows.Forms;
 using System.Collections.Generic;
 
+/* Known issues
+ * When pressing Previous repeatedly to back out of a set of linked songs (phantom queue), it will go back to the song MusicBee first shuffled to,
+ *  requiring an extra press of Prev.  E.g.:
+ *  4th -> 3rd -> 2nd -> 1st -> song MusicBee shuffled to, e.g. 2nd -> prior songs
+ *  
+ */
+
 namespace MusicBeePlugin
 {
     public partial class Plugin
@@ -179,13 +186,6 @@ namespace MusicBeePlugin
                             //  It's simpler to always do this, rather than add logic for if it's on the first song
                             mbApiInterface.Player_PlayNextTrack();
                         }
-                    }
-
-                    // For testing:
-                    System.IO.File.WriteAllText("C:\\Users\\Shane\\Desktop\\testing-playlist.txt", "");
-                    foreach (string track in continuousPlaylist)
-                    {
-                        System.IO.File.AppendAllText("C:\\Users\\Shane\\Desktop\\testing-playlist.txt", track + " \r\n");
                     }
 
                     // ...
