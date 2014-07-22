@@ -42,8 +42,6 @@ namespace MusicBeePlugin
 
         // Whenever the last continuous playlist is finished, remove the added tracks.
         private int LastPlaylist_StartingIndex = -1;
-        // Keep track of the current index, too; if it does anything other than increment, call cleanup
-        private int LastPlaylist_CurrentIndex = -1;
 
         public PluginInfo Initialise(IntPtr apiInterfacePtr)
         {
@@ -137,16 +135,10 @@ namespace MusicBeePlugin
 
                     List<string> continuousPlaylist = buildContinuousPlaylist(sourceFileUrl);
 
-                    if (LastPlaylist_StartingIndex != -1)
-                    {
-                        // In the middle of a playlist; increment the counter, to be sure
-                        LastPlaylist_CurrentIndex++;
-                    }
-
                     // If cleanup needed, do it, otherwise, check next things
                     //  Cleanup needed if:  Linked generated playlists not the same
                     //                      Index did not increment as expected (shuffled back into existing generated playlist)
-                    if ((LastPlaylist_StartingIndex != -1) && (checkIfPlaylistsEqual(LastContinuousPlaylist, continuousPlaylist) == false || LastPlaylist_CurrentIndex != mbApiInterface.NowPlayingList_GetCurrentIndex()))
+                    if ((LastPlaylist_StartingIndex != -1) && (checkIfPlaylistsEqual(LastContinuousPlaylist, continuousPlaylist) == false))
                     {
                         isProgramModifyingPlaylist = true;
                         // Remove all automatically-added songs, to keep the playlist nice and tidy.
@@ -182,13 +174,10 @@ namespace MusicBeePlugin
 
                             // Keep note of which indexes were used when adding songs, to remove them later
                             LastPlaylist_StartingIndex = mbApiInterface.NowPlayingList_GetCurrentIndex();
-                            LastPlaylist_CurrentIndex = LastPlaylist_StartingIndex;
 
                             // Switch to the song
                             //  It's simpler to always do this, rather than add logic for if it's on the first song
                             mbApiInterface.Player_PlayNextTrack();
-
-                            LastPlaylist_CurrentIndex ++;
                         }
                     }
 
@@ -218,7 +207,6 @@ namespace MusicBeePlugin
         private void cleanupLinkedPlaylist()
         {
             LastPlaylist_StartingIndex = -1;
-            LastPlaylist_CurrentIndex = -1;
 
             // Clean up the last playlist, too, in case it's needed again
             LastContinuousPlaylist.Clear();
