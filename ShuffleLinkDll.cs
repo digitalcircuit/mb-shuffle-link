@@ -164,19 +164,17 @@ namespace MusicBeePlugin
                                 LastContinuousPlaylist.Add(track);
                             }
 
-                            if (sourceFileUrl.Trim() != continuousPlaylist[0].Trim())
-                            {
-                                // Not playing the first song of the playlist, switch to it
-                                mbApiInterface.Player_PlayNextTrack();
-                            }
-
                             // Keep note of which indexes were used when adding songs, to remove them later
                             LastPlaylist_IndexesToRemove.Clear();
                             int currentSongIndex = mbApiInterface.NowPlayingList_GetCurrentIndex();
-                            for (int new_index = currentSongIndex; new_index < (continuousPlaylist.Count + currentSongIndex); new_index++)
+                            for (int new_index = currentSongIndex - 1; new_index < (continuousPlaylist.Count + currentSongIndex - 1); new_index++)
                             {
                                 LastPlaylist_IndexesToRemove.Add(new_index);
                             }
+
+                            // Switch to the song
+                            //  It's simpler to always do this, rather than add logic for if it's on the first song
+                            mbApiInterface.Player_PlayNextTrack();
                         }
                     }
 
