@@ -8,7 +8,8 @@ using System.Collections.Generic;
  * When pressing Previous repeatedly to back out of a set of linked songs (phantom queue), it will go back to the song MusicBee first shuffled to,
  *  requiring an extra press of Prev.  E.g.:
  *  4th -> 3rd -> 2nd -> 1st -> song MusicBee shuffled to, e.g. 2nd -> prior songs
- *  
+ *  Additionally, the shuffle history will be reset completely
+ * 
  */
 
 namespace MusicBeePlugin
