@@ -26,8 +26,10 @@ Let's say you want to link three songs from the Dustforce soundtrack together.  
 
 * Upside Down Stalagmite
 
-`Next: title=Baryogenesis;artist=Lifeformed;album=Fastfall
-Prev: title=Sepia Tone Laboratory;artist=Lifeformed;album=Fastfall`
+```
+Next: title=Baryogenesis;artist=Lifeformed;album=Fastfall
+Prev: title=Sepia Tone Laboratory;artist=Lifeformed;album=Fastfall
+```
 
 * Baryogenesis
 
