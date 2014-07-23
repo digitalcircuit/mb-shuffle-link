@@ -1,4 +1,9 @@
-﻿using System;
+﻿/* - MusicBee API -
+ * Directly taken from http://getmusicbee.com/forum/index.php?topic=1972.msg9925#msg9925
+ * License is not known, I take no credit for this part.
+ */
+
+using System;
 using System.Runtime.InteropServices;
 
 namespace MusicBeePlugin
