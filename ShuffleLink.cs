@@ -10,6 +10,9 @@ using System.Collections.Generic;
  *  4th -> 3rd -> 2nd -> 1st -> song MusicBee shuffled to, e.g. 2nd -> prior songs
  *  Additionally, the shuffle history will be reset completely
  * 
+ * When moving out of a set of linked songs (phantom queue), sometimes it will not clean up the linked songs right away.  It should be cleaned up
+ *  in one or two song changes.
+ * 
  */
 
 namespace MusicBeePlugin
